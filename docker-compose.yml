@@ -1,0 +1,81 @@
+version: "3"
+
+services:
+  # MySQL 5.7.x
+  db:
+    restart: always
+    image: mysql:5.7
+    ports:
+      - "33066:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE:      suppercolony
+      MYSQL_USER:          suppercolony
+      MYSQL_PASSWORD:      secret
+      TERM:                linux
+    volumes:
+      - ./data/database:/var/lib/mysql
+      - ./data/logs/mysql:/var/log/mysql
+    networks:
+      - internal
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+
+  # Redis 3.2.x
+  redis:
+    restart: always
+    image: redis:3.2-alpine
+    environment:
+      TERM: linux
+    volumes:
+      - ./data/redis:/data
+    networks:
+      - internal
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+
+  # PHP-FPM 7.2.x
+  php:
+    restart: always
+    build: ./services/php7.2-fpm
+    environment:
+      TERM: linux
+    volumes:
+      - ./services/php7.2-fpm/php.ini:/etc/php.ini:ro
+      - ./services/php7.2-fpm/php-fpm.conf:/usr/local/etc/php-fpm.conf:ro
+      - ./data/logs/php:/var/log/php-fpm
+      - ./app:/app
+    networks:
+      - external
+      - internal
+    depends_on:
+      - db
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+
+  # Nginx 1.10.x
+  web:
+    restart: always
+    image: nginx:stable-alpine
+    ports:
+      - "4000:80"
+    volumes:
+      - ./services/nginx/site.conf:/etc/nginx/conf.d/site.conf:ro
+      - ./data/logs/nginx:/var/log/nginx
+      - ./app:/app
+    networks:
+      - external
+    depends_on:
+      - php
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+
+networks:
+  external:
+    driver: bridge
+  internal:
+    driver: bridge
